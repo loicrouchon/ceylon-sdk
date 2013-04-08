@@ -112,7 +112,7 @@ shared class Instant(millisecondsOfEra)
     shared Duration durationTo(Instant other) {
         return Duration(other.millisecondsOfEra - this.millisecondsOfEra);
     }
-    
+
     "Returns duration in milliseconds from other instant to this instant."
     shared Duration durationFrom(Instant other) {
         return Duration(this.millisecondsOfEra - other.millisecondsOfEra);
