@@ -1,4 +1,3 @@
-
 "A clock providing access to the current instant, date and time using a time-zone.
  
  Instances of this class are used to find the current instant, which can be
@@ -18,9 +17,6 @@
  The [[systemTime]] top level factory method offers clocks based on the best available 
  system clock, such as `process.milliseconds`."
 shared interface Clock {
-
-    //TODO: shared formal TimeZone zone
-    //TODO: shared formal Clock withZone(TimeZone zone);
 
     "Gets the current millisecond instant of the clock."
     shared formal Integer milliseconds();
