@@ -269,7 +269,7 @@ shared class GregorianDateTime( date, time )
     }
 
     "Returns the [[DateTimeRange]] between this and given DateTime"
-    shared actual DateTimeRange to( DateTime other ) {
+    shared actual DateTimeRange rangeTo( DateTime other ) {
         return DateTimeRange(this, other); 
     }
 
