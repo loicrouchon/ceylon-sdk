@@ -57,10 +57,10 @@ shared interface Range<Element, in Self, StepBy> satisfies Iterable<Element, Nul
 
      Given: [A..B] overlap [C..D]\n 
      When: AB > CD\n
-         [3..9] overlap [1..6] = [6,3]\n
-         [3..9] overlap [6..1] = [6,3]\n
-         [9..3] overlap [1..6] = [6,3]\n
-         [9..3] overlap [6..1] = [6,3]"
+         [3..9] overlap [1..6] = [3,6]\n
+         [3..9] overlap [6..1] = [3,6]\n
+         [9..3] overlap [1..6] = [3,6]\n
+         [9..3] overlap [6..1] = [3,6]"
     shared formal Range<Element, Self, StepBy>|Empty overlap( Self other );
 
     "Returns empty or a new Range:
@@ -76,10 +76,10 @@ shared interface Range<Element, in Self, StepBy> satisfies Iterable<Element, Nul
 
      Given: [A..B] gap [C..D]\n 
      When: AB > CD\n
-         [5..6] gap [1..2] = (5,2)\n
-         [5..6] gap [2..1] = (5,2)\n
-         [6..5] gap [1..2] = (5,2)\n
-         [6..5] gap [2..1] = (5,2)"    
+         [5..6] gap [1..2] = (2,5)\n
+         [5..6] gap [2..1] = (2,5)\n
+         [6..5] gap [1..2] = (2,5)\n
+         [6..5] gap [2..1] = (2,5)"    
     shared formal Range<Element, Self, StepBy>|Empty gap( Self other );
 
     "Returns true if both: this and other are same type and have equal fields _from_ and _to_"
