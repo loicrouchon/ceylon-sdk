@@ -11,19 +11,18 @@ import ceylon.net.http.server.endpoints { serveStaticFile }
 import ceylon.test { assertEquals, assertTrue }
 import java.lang { Runnable, Thread }
 import ceylon.collection { LinkedList }
-import ceylon.net.http { contentType }
+import ceylon.net.http { contentType, trace, connect, Method, parseMethod, post, get, put, delete, Header}
 
 
-by "Matej Lazar"
-
+by("Matej Lazar")
 String fileContent = "The quick brown fox jumps over the lazy dog.\n";
 
-doc "How many lines of default text to write to file."
+"How many lines of default text to write to file."
 Integer fileLines = 10;
 
 String fileName = "lazydog.txt";
 
-doc "Number of concurent requests"
+"Number of concurent requests"
 Integer numberOfUsers=10;
 Integer requestsPerUser = 10;
 
@@ -53,9 +52,18 @@ void testServer() {
     server.addEndpoint(Endpoint {
         service => void (Request request, Response response) {
                         response.addHeader(contentType("text/html", utf8));
-                        response.writeString(request.method);
+                        response.writeString(request.method.string);
                     };
         path = startsWith("/methodTest");
+    });
+
+    server.addEndpoint(Endpoint {
+        service => void (Request request, Response response) {
+                        response.addHeader(contentType("text/html", utf8));
+                        response.writeString(request.method.string);
+                    };
+        path = startsWith("/acceptMethodTest");
+        acceptMethod = {post, get};
     });
 
     server.addEndpoint(Endpoint {
@@ -64,6 +72,26 @@ void testServer() {
                         response.writeString(request.parameter("čšž") else "");
                     };
         path = startsWith("/paramTest");
+    });
+
+    server.addEndpoint(Endpoint {
+        service => void (Request request, Response response) {
+                        response.addHeader(contentType("text/html", utf8));
+                        variable Object? count = request.session.get("count");
+                        if (exists Object c = count) {
+                            if (is Integer ci = c) {
+                                value ci2 = ci.plus(1);
+                                request.session.put("count", ci2);
+                                response.writeString(ci2.string);
+                            } else {
+                                AssertionException("Invalid object type retreived from session");
+                            }
+                        } else {
+                            request.session.put("count", Integer(1));
+                            response.writeString(1.string);
+                        }
+                    };
+        path = startsWith("/session");
     });
 
     //add fileEndpoint
@@ -80,14 +108,19 @@ void testServer() {
                 try {
                     headerTest();
                     
-                    executeEchoTest();
+                    executeEchoTest("Ceylon");
                     
                     concurentFileRequests(numberOfUsers);
                     
+                    acceptMethodTest();
+                    
                     methodTest();
-
+                    
                     parametersTest("čšž", "ČŠŽ ĐŽ");
-
+                    
+                    //TODO enable session test when client suports it
+                    //sessionTest();
+                    
                     //TODO multipart post
                     
                 } finally {
@@ -105,11 +138,10 @@ void testServer() {
     };
 }
 
-void executeEchoTest() {
+void executeEchoTest(String name) {
     //TODO log debug
     print("Making request to Ceylon server...");
     
-    String name = "Ceylon";
     value expecting = "Hello ``name``!";
 
     value request = ClientRequest(parse("http://localhost:8080/echo?name=" + name));
@@ -237,25 +269,30 @@ void testPathMatcher() {
 }
 
 void methodTest() {
-    methodTestRequest("POST");
-    methodTestRequest("POST");
-    methodTestRequest("POST");
-    methodTestRequest("POST");
-    methodTestRequest("PUT");
-    methodTestRequest("PUT");
-    methodTestRequest("PUT");
-    methodTestRequest("PUT");
-    methodTestRequest("GET");
-    methodTestRequest("GET");
-    methodTestRequest("GET");
-    methodTestRequest("GET");
-    methodTestRequest("DELETE");
-    methodTestRequest("DELETE");
-    methodTestRequest("DELETE");
-    methodTestRequest("DELETE");
+    methodTestRequest(post);
+    methodTestRequest(post);
+    methodTestRequest(post);
+    methodTestRequest(post);
+    methodTestRequest(put);
+    methodTestRequest(put);
+    methodTestRequest(put);
+    methodTestRequest(put);
+    methodTestRequest(get);
+    methodTestRequest(get);
+    methodTestRequest(get);
+    methodTestRequest(get);
+    methodTestRequest(delete);
+    methodTestRequest(delete);
+    methodTestRequest(delete);
+    methodTestRequest(delete);
+
+    methodTestRequest(trace);
+    methodTestRequest(connect);
+    methodTestRequest(parseMethod("CUSTOMMETHOD"));
+    methodTestRequest(parseMethod("lowercasemethod"));
 }
 
-void methodTestRequest(String method) {
+void methodTestRequest(Method method) {
     value request = ClientRequest(parse("http://localhost:8080/methodTest"));
 
     request.method = method;
@@ -267,11 +304,63 @@ void methodTestRequest(String method) {
     response.close();
     //TODO log
     print("Response content: " + responseContent);
-    assertEquals(method, responseContent);
+    assertEquals(method.string, responseContent);
+}
+
+void acceptMethodTest() {
+    //accept POST
+    value request = ClientRequest(parse("http://localhost:8080/acceptMethodTest"));
+    request.method = post;
+    request.setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+    request.setParameter(Parameter("foo", "valueFoo"));
+    value response = request.execute();
+    value responseStatus = response.status;
+    value responseContent = response.contents;
+    response.close();
+    //TODO log
+    assertEquals(200, responseStatus);
+    assertEquals(post.string, responseContent);
+
+    //accept GET
+    value request1 = ClientRequest(parse("http://localhost:8080/acceptMethodTest"));
+    request1.method = post;
+    request1.setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+    request1.setParameter(Parameter("foo", "valueFoo"));
+    value response1 = request1.execute();
+    value response1Status = response1.status;
+    response.close();
+    //TODO log
+    assertEquals(200, response1Status);
+
+    //do NOT accept PUT 
+    value request2 = ClientRequest(parse("http://localhost:8080/acceptMethodTest"));
+    request2.method = put;
+    request2.setParameter(Parameter("foo", "valueFoo"));
+    value response2 = request2.execute();
+    value response2Status = response2.status;
+    response2.close();
+    //TODO log
+    assertEquals(405, response2Status);
+    if (exists Header allow = response2.headersByName["allow"]) {
+        assertEquals(allow.values.get(0), "POST, GET");
+    } else {
+        throw AssertionException("Missing allow header.");
+    }
+
+    //accept all methods
+    value request3 = ClientRequest(parse("http://localhost:8080/methodTest"));
+    request3.method = post;
+    request3.setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+    request3.setParameter(Parameter("foo", "valueFoo"));
+    value response3 = request3.execute();
+    value response3Status = response3.status;
+    response3.close();
+    //TODO log
+    assertEquals(200, response3Status);
 }
 
 void parametersTest(String paramKey, String paramValue) {
-    value request = ClientRequest(parse("http://localhost:8080/paramTest"), "POST");
+    value request = ClientRequest(parse("http://localhost:8080/paramTest"), post);
 
     request.setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
     request.setParameter(Parameter("foo", "valueFoo"));
@@ -283,4 +372,22 @@ void parametersTest(String paramKey, String paramValue) {
     //TODO log
     print("Response content: " + responseContent);
     assertEquals(paramValue, responseContent);
+}
+
+void sessionTest() {
+    value request = ClientRequest(parse("http://localhost:8080/session"), get);
+
+    value response = request.execute();
+    value responseContent = response.contents;
+    //TODO log
+    print("Response content: " + responseContent);
+    assertEquals("1", responseContent);
+    response.close();
+
+    value response2 = request.execute();
+    value responseContent2 = response.contents;
+    //TODO log
+    print("Response content: " + responseContent2);
+    assertEquals("2", responseContent2);
+    response2.close();
 }

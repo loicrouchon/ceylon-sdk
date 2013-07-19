@@ -1,7 +1,7 @@
 import ceylon.time.base { Range, UnitOfDate, milliseconds, UnitOfTime, UnitOfYear, UnitOfMonth, UnitOfDay, UnitOfHour, UnitOfMinute, UnitOfSecond, UnitOfMillisecond }
 import ceylon.time.internal { _gap = gap, _overlap = overlap }
 
-see( Range )
+//TODO see( Range )
 shared class DateTimeRange( from, to, step = milliseconds ) satisfies Range<DateTime, DateTimeRange, UnitOfDate|UnitOfTime> {
 
     shared actual DateTime from;
@@ -15,7 +15,7 @@ shared class DateTimeRange( from, to, step = milliseconds ) satisfies Range<Date
         return Duration(to.instant().millisecondsOfEra - from.instant().millisecondsOfEra);	
     }
 
-    shared actual Boolean equals( Object other ) => Range::equals(other); 
+    shared actual Boolean equals( Object other ) => (super of Range<DateTime, DateTimeRange, UnitOfDate|UnitOfTime>).equals(other); 
 
     shared actual DateTimeRange|Empty overlap(DateTimeRange other) {
         value response = _overlap([from,to], [other.from, other.to]);
@@ -28,11 +28,15 @@ shared class DateTimeRange( from, to, step = milliseconds ) satisfies Range<Date
 
     shared actual DateTimeRange|Empty gap( DateTimeRange other ) {
         value response = _gap([from,to], [other.from, other.to]);
-        if ( is [DateTime,DateTime] response) {
-            return DateTimeRange(response[0], response[1]);
+        switch( response )
+        case( is [DateTime,DateTime] ) {
+            return response[0].successor < response[1] 
+                       then DateTimeRange(response[0].successor, response[1].predecessor)
+                       else [];
         }
-        assert( is Empty response);
-        return response;
+        case( is Empty ) {
+            return response;
+        }
     }
 
     "An iterator for the elements belonging to this 

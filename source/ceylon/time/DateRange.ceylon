@@ -1,7 +1,7 @@
 import ceylon.time.base { Range, milliseconds, UnitOfDate, days, UnitOfYear, UnitOfMonth, UnitOfDay }
 import ceylon.time.internal { _gap = gap, _overlap = overlap }
 
-see( Range )
+see( `Range<Date, DateRange, UnitOfDate>` )
 shared class DateRange( from, to, step = days ) satisfies Range<Date, DateRange, UnitOfDate> {
 
     shared actual Date from;
@@ -12,12 +12,12 @@ shared class DateRange( from, to, step = days ) satisfies Range<Date, DateRange,
         return from.periodTo(to);
     }
 
-    shared actual Duration duration  {
+    shared actual Duration duration {
         return Duration((to.dayOfEra - from.dayOfEra) * milliseconds.perDay);	
     }
 
     shared actual Boolean equals( Object other ) {
-        return Range::equals(other); 
+        return (super of Range<Date, DateRange, UnitOfDate>).equals(other); 
     }
 
     shared actual DateRange|Empty overlap(DateRange other) {
@@ -31,15 +31,19 @@ shared class DateRange( from, to, step = days ) satisfies Range<Date, DateRange,
 
     shared actual DateRange|Empty gap( DateRange other ) {
         value response = _gap([from,to], [other.from, other.to]);
-        if ( is [Date,Date] response) {
-            return DateRange(response[0], response[1]);
+        switch( response )
+        case( is [Date,Date] ) {
+            return response[0].successor < response[1] 
+                       then DateRange(response[0].successor, response[1].predecessor)
+                       else [];
         }
-        assert( is Empty response);
-        return response;
+        case( is Empty ) {
+            return response;
+        }
     }
 
     "An iterator for the elements belonging to this 
-     container. where each jump is based on actual step of this Range"
+     container. where each jump is based on actual stepBy of this Range"
     shared actual Iterator<Date> iterator()  {
         object listIterator satisfies Iterator<Date> {
             variable Integer count = 0;
@@ -69,6 +73,6 @@ shared class DateRange( from, to, step = days ) satisfies Range<Date, DateRange,
         case( is UnitOfYear )  { return from.minusYears(jump); }
         case( is UnitOfMonth ) { return from.minusMonths(jump); }
         case( is UnitOfDay )   { return from.minusDays(jump); }
-    } 
+    }
 
 }

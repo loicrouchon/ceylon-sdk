@@ -1,7 +1,7 @@
 import ceylon.time.base { Range, UnitOfTime, milliseconds, UnitOfHour, UnitOfMinute, UnitOfSecond, UnitOfMillisecond }
 import ceylon.time.internal { _gap = gap, _overlap = overlap }
 
-see( Range )
+//TODO see( Range )
 shared class TimeRange( from, to, step = milliseconds ) satisfies Range<Time, TimeRange, UnitOfTime> {
 
     shared actual Time from;
@@ -17,7 +17,7 @@ shared class TimeRange( from, to, step = milliseconds ) satisfies Range<Time, Ti
     }
 
     shared actual Boolean equals( Object other ) {
-        return Range::equals(other); 
+        return (super of Range<Time, TimeRange, UnitOfTime>).equals(other); 
     }
 
     shared actual TimeRange|Empty overlap(TimeRange other) {
@@ -31,11 +31,15 @@ shared class TimeRange( from, to, step = milliseconds ) satisfies Range<Time, Ti
 
     shared actual TimeRange|Empty gap( TimeRange other ) {
         value response = _gap([from,to], [other.from, other.to]);
-        if ( is [Time,Time] response) {
-            return TimeRange(response[0], response[1]);
+        switch( response )
+        case( is [Time,Time] ) {
+            return response[0].successor < response[1] 
+                       then TimeRange(response[0].successor, response[1].predecessor)
+                       else [];
         }
-        assert( is Empty response);
-        return response;
+        case( is Empty ) {
+            return response;
+        }
     }
 
     "An iterator for the elements belonging to this 

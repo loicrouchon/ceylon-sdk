@@ -14,7 +14,7 @@ import org.xnio.channels { StreamSinkChannel,
                            Channels { chFlushBlocking=flushBlocking } }
 import ceylon.io.buffer { Buffer }
 
-by "Matej Lazar"
+by("Matej Lazar")
 shared class ResponseImpl(HttpServerExchange exchange, Charset defaultCharset) 
         satisfies Response {
 
@@ -77,12 +77,14 @@ shared class ResponseImpl(HttpServerExchange exchange, Charset defaultCharset)
         for (h in headers) {
             if (h.name.lowercased.equals(header.name.lowercased)) {
                 for (val in header.values) {
+                    //TODO log trace print("Adding value [``val``] to header [``header.name``].");
                     h.values.add(val);
                 }
                 headerExists = true; 
             }
         }
         if (!headerExists) {
+            //TODO log trace print("Adding new header [``header.name``] with values [``header.values``].");
             headers.add(header);
         }
     }
@@ -95,6 +97,9 @@ shared class ResponseImpl(HttpServerExchange exchange, Charset defaultCharset)
     }
     
     shared void responseDone() {
+        //Retry to apply headers, if there were no writes, headers were not applied.
+        applyHeadersToExchange();
+        
         response.shutdownWrites();
         chFlushBlocking(response);
         response.close();
@@ -106,7 +111,8 @@ shared class ResponseImpl(HttpServerExchange exchange, Charset defaultCharset)
         }
         for(header in headers){
             for(val in header.values){
-                exchange.responseHeaders.add(HttpString(header.name), val);
+                //TODO log fine print("Applying header [``header.name``] with value [``val``].");
+                exchange.responseHeaders.put(HttpString(header.name), val);
             }
         }
         headersSent = true;

@@ -1,13 +1,12 @@
 import ceylon.collection { HashMap }
 import ceylon.io { SocketAddress }
-import ceylon.net.http.server { Request, Session, Endpoint, 
-                          InternalException, AsynchronousEndpoint }
+import ceylon.net.http.server { 
+    Request, Session, 
+    Endpoint, AsynchronousEndpoint,
+    InternalException }
 
 import io.undertow.server { HttpServerExchange }
-import io.undertow.server.handlers.form { 
-        FormEncodedDataHandler { applicationXWwwFormUrlEncoded=APPLICATION_X_WWW_FORM_URLENCODED }, 
-        MultiPartHandler { multiparFormData=MULTIPART_FORM_DATA }, 
-        FormDataParser { fdpAttachmentKey=ATTACHMENT_KEY }, FormData }
+import io.undertow.server.handlers.form { FormDataParser, FormData, FormParserFactory }
 
 import io.undertow.server.session { 
         SessionManager { smAttachmentKey=ATTACHMENT_KEY }, 
@@ -17,9 +16,10 @@ import io.undertow.util { Headers { headerConntentType=CONTENT_TYPE },
 
 import java.lang { JString=String }
 import java.util { Deque, JMap=Map }
+import ceylon.net.http { Method, parseMethod }
 
-by "Matej Lazar"
-shared class RequestImpl(HttpServerExchange exchange) satisfies Request {
+by("Matej Lazar")
+shared class RequestImpl(HttpServerExchange exchange, FormParserFactory formParserFactory) satisfies Request {
     
     shared variable Endpoint|AsynchronousEndpoint|Null endpoint = null;
     
@@ -87,7 +87,7 @@ shared class RequestImpl(HttpServerExchange exchange) satisfies Request {
     
     shared actual String path => exchange.requestPath;
     
-    doc "Resurns substring of string without [[startsWith]] parts."
+    "Resurns substring of string without [[startsWith]] parts."
     shared actual String relativePath {
         String requestPath = path;
         if (exists e = endpoint) {
@@ -102,7 +102,7 @@ shared class RequestImpl(HttpServerExchange exchange) satisfies Request {
         return SocketAddress(address.hostString, address.port);
     }
     
-    shared actual String method => exchange.requestMethod.string;
+    shared actual Method method => parseMethod(exchange.requestMethod.string.uppercased);
     
     shared actual String queryString => exchange.queryString;
     
@@ -156,16 +156,12 @@ shared class RequestImpl(HttpServerExchange exchange) satisfies Request {
         if (exists f = formData) {
             return f;
         } else { 
-            if (exists contentType = getHeader(headerConntentType.string)) {
-                if (contentType.startsWith(applicationXWwwFormUrlEncoded) || contentType.startsWith(multiparFormData)) {
-                    FormDataParser formDataParser = exchange.getAttachment(fdpAttachmentKey);
-                    //if EagerFormParsingHandler is in handlers chain, parsing is already done and operation returns imediatly
-                    formData = formDataParser.parseBlocking();
-                }
-            } 
-            //If it is not parsable, construct empty
-            if (!formData exists) {
-                formData = FormData();
+            FormDataParser? formDataParser = formParserFactory.createParser(exchange);
+            if (exists fdp = formDataParser) {
+                formData = fdp.parseBlocking();
+            } else {
+                //If no parser exists for requeste content-type, construct empty form data
+                formData = FormData(1000); //TODO expose max form data values as option
             }
         }
         return formData;

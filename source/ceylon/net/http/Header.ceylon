@@ -1,14 +1,14 @@
 import ceylon.collection { LinkedList, MutableList }
 import ceylon.io.charset { Charset }
 
-doc "Represents an HTTP Header"
-by "Stéphane Épardaud"
+"Represents an HTTP Header"
+by("Stéphane Épardaud")
 shared class Header(name, String* initialValues){
     
-    doc "Header name"
+    "Header name"
     shared String name;
     
-    doc "Header value"
+    "Header value"
     shared MutableList<String> values = LinkedList<String>();
     
     for(val in initialValues){
@@ -27,5 +27,17 @@ shared Header contentType(String contentType, Charset? charset = null) {
 }
 
 shared Header contentLength(String contentLength) => Header("Content-Length", contentLength);
+
+Header allowHeaders({Method*} methods) {
+    StringBuilder sb = StringBuilder();
+    for (i -> method in entries(methods)) {
+        if (i > 0) {
+            sb.append(", ");
+        }
+        sb.append(method.string);
+    }
+    return Header("Allow", sb.string);
+}
+shared Header allow({Method*} methods = empty) => allowHeaders(methods);
 
 shared String contentTypeFormUrlEncoded = "application/x-www-form-urlencoded";

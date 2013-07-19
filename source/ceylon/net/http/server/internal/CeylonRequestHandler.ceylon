@@ -2,35 +2,49 @@ import io.undertow.server { JHttpServerExchange = HttpServerExchange, HttpHandle
 import ceylon.net.http.server { Request, AsynchronousEndpoint, Endpoint, Options, InternalException }
 import ceylon.collection { LinkedList }
 import java.lang { Runnable }
+import ceylon.net.http { Method, allow }
+import io.undertow.server.handlers.form { FormParserFactory { formParserFactoryBuilder = builder } }
 
-by "Matej Lazar"
+by("Matej Lazar")
 shared class CeylonRequestHandler() satisfies HttpHandler {
     
     value endpoints = LinkedList<Endpoint|AsynchronousEndpoint>();
     
     shared variable Options? options = null;
     
+    FormParserFactory formParserFactory = formParserFactoryBuilder().build();
+    
     shared void addWebEndpoint(Endpoint|AsynchronousEndpoint endpoint) {
         endpoints.add(endpoint);
+    }
+    
+    void endResponse(JHttpServerExchange exchange, ResponseImpl response, Integer responseStatus) {
+        response.responseStatus = responseStatus;
+        response.responseDone();
+        exchange.endExchange();
     }
     
     shared actual void handleRequest(JHttpServerExchange? exchange) {
         if (exists o = options) {
             if (exists exc = exchange) {
-                RequestImpl request = RequestImpl(exc);
+                
+                RequestImpl request = RequestImpl(exc, formParserFactory);
                 ResponseImpl response = ResponseImpl(exc, o.defaultCharset);
                 
                 try {
                     String requestPath = request.path;
-                    Endpoint|AsynchronousEndpoint|Null endpoint = getWebEndpoint(requestPath);
+                    Endpoint|AsynchronousEndpoint|Null endpoint = getWebEndpointMatchingPath(requestPath);
                     
                     if (exists e = endpoint) {
-                        request.endpoint = e;
-                        invokeEndpoint(e, request, response, exc);
+                        if (isMethodSupported(e, request.method)) {
+                            request.endpoint = e;
+                            invokeEndpoint(e, request, response, exc);
+                        } else {
+                            response.addHeader(allow(e.acceptMethod));
+                            endResponse(exc, response, 405);
+                        }
                     } else {
-                        response.responseStatus=404;
-                        response.responseDone();
-                        exc.endExchange();
+                        endResponse(exc, response, 404);
                     }
                 } catch(Exception e) {
                     //TODO write to log
@@ -70,13 +84,20 @@ shared class CeylonRequestHandler() satisfies HttpHandler {
         }
     }
     
-
-    Endpoint|AsynchronousEndpoint|Null getWebEndpoint(String requestPath) {
+    Endpoint|AsynchronousEndpoint|Null getWebEndpointMatchingPath(String requestPath) {
         for (endpoint in endpoints) {
             if (endpoint.path.matches(requestPath)) {
                 return endpoint;
             }
         }
         return null;
+    }
+    
+    Boolean isMethodSupported(Endpoint|AsynchronousEndpoint endpoint, Method method) { 
+        if (endpoint.acceptMethod.size > 0) {
+            return endpoint.acceptMethod.contains(method);
+        } else {
+            return true;
+        }
     }
 }
